@@ -1,21 +1,8 @@
 import random
 import pygame
 
-GRID_SIZE = (16,9)
-UNIT_SIZE = (64,64)
-
-map = "################" \
-      "................" \
-      "####..##########" \
-      "................" \
-      "####..#######..#" \
-      "................" \
-      "................" \
-      "...............#" \
-      "################"
-
-WIDTH, HEIGHT = GRID_SIZE[0]* UNIT_SIZE[0],GRID_SIZE[1]* UNIT_SIZE[1] #virtual screen
-scale = 1 
+WIDTH, HEIGHT = 640, 360
+scale = 2 
 FPS = 60
 
 pygame.init() #start the pygames systems
@@ -35,18 +22,17 @@ def overlap(rect1,rect2):
 
 
 class Map:
-    def __init__(self,map):
-        self.map = map
+    def __init__(self,name):
+        self.name = name
         self.walls= []
 
-    def create_walls(self):
-        for y in range(GRID_SIZE[1]):
-            for x in range(GRID_SIZE[0]):
-                if (map[y*GRID_SIZE[0]+ x] == "#"):
-                    self.walls.append(pygame.Rect( x* UNIT_SIZE[0] , y* UNIT_SIZE[1] , UNIT_SIZE[0] , UNIT_SIZE[1] ))
+    def create_wall(self,point,size):
+        self.walls.append(pygame.Rect(point[0],point[1],size[0],size[1]))
+        
 
-map1 = Map(map)
-map1.create_walls()
+map1 = Map("Level 1")
+map1.create_wall((0,200),(200,20))
+map1.create_wall((440,200),(50,50))
 
 dx = 0
 dy = 0
@@ -101,7 +87,7 @@ while running:
     if not keys[pygame.K_UP] and dy > 2:
         dy = 2
 
-    if keys[pygame.K_DOWN]:
+    if keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]:
         speed = 4
     else:
         speed = 3
