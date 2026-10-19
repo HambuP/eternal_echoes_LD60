@@ -216,7 +216,7 @@ class RoomSelect(Scene):
                 pygame.draw.rect(canvas, (255, 196 + pulse // 6, 92) if i < self.unlocked else (120, 120, 130),
                                  rect.inflate(6, 6), 2, border_radius=2)
         if self.index >= self.unlocked:
-            label(canvas, "LOCKED", VIEW_W - 60, VIEW_H - 14, 9, PAPER, center=True)
+            label(canvas, "LOCKED", VIEW_W - 30, VIEW_H - 14, 9, PAPER, center=True)
         self.draw_fade(canvas)
 
 
