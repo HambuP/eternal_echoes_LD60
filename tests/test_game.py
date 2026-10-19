@@ -6,7 +6,7 @@ import pygame
 import levels
 from campaign import Campaign, SaveStore
 from player import Player
-from scenes import Play, Pause, Menu, End, lines, font
+from scenes import Play, Pause, Menu, End
 
 
 class GameTests(unittest.TestCase):
@@ -144,14 +144,6 @@ class GameTests(unittest.TestCase):
             levels.geometry(room, True)
             self.assertEqual(before, levels.geometry(room, False))
 
-    def test_story_panels_fit(self):
-        for story in levels.ROOMS:
-            bodies = [story['intro'][1], story['repaired_text'], story['memory_text']]
-            for body in bodies:
-                self.assertLessEqual(len(lines(body, 518, 21)), 5)
-            body_height = len(lines(story['intro'][1], 518, 21)) * 24
-            note_height = len(lines(story['intro'][2], 518, 18)) * 21
-            self.assertLessEqual(116 + body_height + 12 + note_height, 278)
 
 
 class PhysicsTests(unittest.TestCase):

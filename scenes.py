@@ -5,64 +5,11 @@ import levels
 import player
 from assets import picture
 from campaign import Campaign, SaveStore, MODULES, MODULE_NAMES
+from sound import soundscape
 
-WIDTH, HEIGHT = 640, 360
-INK = (15, 23, 34)
-PAPER = (231, 230, 214)
-MUTED = (160, 178, 184)
-GOLD = (255, 205, 111)
-MINT = (125, 229, 192)
-_fonts = {}
-
-
-def font(size):
-    if size not in _fonts:
-        _fonts[size] = pygame.font.Font(None, size)
-    return _fonts[size]
-
-
-def label(canvas, text, x, y, size=18, color=PAPER, center=False):
-    surface = font(size).render(text, True, color)
-    canvas.blit(surface, surface.get_rect(midtop=(x, y)) if center else (x, y))
-
-
-def lines(text, width, size=20):
-    result = []
-    for paragraph in text.split("\n"):
-        line = ""
-        for word in paragraph.split():
-            candidate = f"{line} {word}".strip()
-            if font(size).size(candidate)[0] > width and line:
-                result.append(line)
-                line = word
-            else:
-                line = candidate
-        result.append(line)
-    return result
-
-
-def paragraph(canvas, text, x, y, width, size=20, color=PAPER):
-    for line in lines(text, width, size):
-        label(canvas, line, x, y, size, color)
-        y += size + 3
-    return y
-
-
-def shade(canvas, alpha=185):
-    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-    overlay.fill((*INK, alpha))
-    canvas.blit(overlay, (0, 0))
-
-
-def panel(canvas, title, body, hint="ENTER / E to continue", note=""):
-    shade(canvas)
-    pygame.draw.rect(canvas, INK, (38, 56, 564, 254), border_radius=12)
-    pygame.draw.rect(canvas, (77, 112, 115), (38, 56, 564, 254), 1, border_radius=12)
-    label(canvas, title, 60, 76, 29, GOLD)
-    bottom = paragraph(canvas, body, 60, 116, 518, 21)
-    if note:
-        paragraph(canvas, note, 60, bottom + 12, 518, 18, MINT)
-    label(canvas, hint, 320, 282, 18, MUTED, center=True)
+from ui import (WIDTH, HEIGHT, INK, PAPER, MUTED, GOLD, MINT, BORDER,
+                font, label, lines, paragraph, shade, panel, card, action,
+                actions_row, prompt)
 
 
 class Scene:
@@ -115,20 +62,23 @@ class Menu(Scene):
 
     def draw(self, canvas):
         canvas.blit(picture("background/Livingroom.png"), (0, 0))
-        shade(canvas, 205)
-        label(canvas, "OLD TECH", 320, 56, 64, GOLD, True)
-        label(canvas, "O N E   L A S T   D E L I V E R Y", 320, 117, 20, MINT, True)
-        paragraph(canvas, "An old robot. A quiet house. A promise worth keeping.", 140, 161, 370, 21)
-        text = "ENTER  continue delivery" if self.saved and not self.saved.finished else "ENTER  begin delivery"
+        shade(canvas, 210)
+        label(canvas, "Old Tech", 320, 59, 64, GOLD, True)
+        label(canvas, "One Last Delivery", 320, 122, 27, PAPER, True)
+        label(canvas, "A quiet house. A promise worth keeping.", 320, 176, 21, MUTED, True)
+        text = "Continue delivery" if self.saved and not self.saved.finished else "Begin delivery"
         if self.saved and self.saved.finished:
-            text = "ENTER  revisit ending"
-        label(canvas, text, 320, 225, 24, PAPER, True)
-        label(canvas, "N  new delivery", 320, 259, 19, MUTED, True)
-        label(canvas, "Move: arrows / A D    Jump: Up / W / Space    Use: E", 320, 309, 17, MUTED, True)
+            text = "Revisit ending"
+        actions_row(canvas, (("Enter", text),), 232)
+        if self.saved:
+            actions_row(canvas, (("N", "New delivery"),), 271)
+        label(canvas, "Controls are available in the pause menu.", 320, 323, 17, MUTED, True)
         if self.store.error:
-            label(canvas, self.store.error, 320, 337, 16, GOLD, True)
+            pygame.draw.rect(canvas, INK, (0, 315, 640, 45))
+            label(canvas, self.store.error, 320, 329, 17, GOLD, True)
         if self.confirm_new:
-            panel(canvas, "A new promise?", "Start a new delivery and replace the saved one?", "ENTER start new  /  ESC keep save")
+            panel(canvas, "A new promise?", "Start a new delivery and replace the saved one?",
+                  (("Enter", "Start new"), ("Esc", "Keep save")))
 
 
 class Play(Scene):
@@ -177,6 +127,7 @@ class Play(Scene):
         self.notice, self.notice_timer = message, 240
 
     def say(self, title, body, note="", confirm=None):
+        soundscape.silence_robot()
         self.robot.jump_request = False
         self.robot.jump_buffer = 0
         self.dialog = (title, body, note, confirm)
@@ -186,14 +137,15 @@ class Play(Scene):
 
     def interaction(self):
         if self.levelnum == 0 and "lamp" not in self.state.owned and self.near((111, 305)):
-            return "salvage", "E  salvage lamp / scanner"
+            return "salvage", "Salvage scanner"
         if self.near(self.story["device"]):
             if self.levelnum not in self.state.repaired:
-                return "device", "E  " + self.story["device_name"]
+                return "device", ("Wind music box", "Scan desk terminal", "Power sink pump",
+                                  "Raise hall lift", "Light Bear's lamp")[self.levelnum]
             if self.levelnum == 4:
-                return "deliver", "E  deliver the brass star"
+                return "deliver", "Deliver the star"
         if self.levelnum not in self.state.memories and self.near(self.story["memory"]):
-            return "memory", "E  read memory" if "lamp" in self.state.equipped else "Memory: connect scanner [3]"
+            return "memory", "Read memory" if "lamp" in self.state.equipped else "Connect scanner"
         return None, ""
 
     def interact(self):
@@ -201,20 +153,20 @@ class Play(Scene):
         if kind == "salvage":
             self.state.salvage_lamp()
             self.persist()
-            self.say("A little more light", "A working lamp, with Miri's scanner taped to its side. Three parts, but only two power sockets.", note="1 springs   2 motor   3 scanner. Disconnect one before connecting another. Swap while standing on a surface.")
+            self.say("A little more light", "A working lamp, with Miri's scanner taped to its side. Three parts, but only two power sockets.", note="Use 1, 2, or 3 to switch parts while grounded. Disconnect one before connecting another. Open the pause menu for controls.")
         elif kind == "memory":
             if "lamp" not in self.state.equipped:
-                self.notify("Connect the scanner [3] to read this memory.")
+                self.notify("Press 3 to connect the scanner and read this memory.")
                 return
             self.state.memories.add(self.levelnum)
             self.persist()
-            self.say("Memory recovered", self.story["memory_text"], note="Saved in your journal [J]. Memories change the ending, never block the path.")
+            self.say("Memory recovered", self.story["memory_text"], note="Saved in your journal. Press J to read it again. Memories are optional.")
         elif kind == "device":
             required = self.story["required"]
             if self.levelnum == 0 and "lamp" not in self.state.owned:
                 self.notify("Collect the lamp on the floor first. You will need it later.")
             elif required not in self.state.equipped:
-                self.notify(f"Connect {MODULE_NAMES[required]} first. Keys 1 / 2 / 3 switch parts.")
+                self.notify(f"Connect {MODULE_NAMES[required]} first. Use 1, 2, or 3 to switch parts.")
             elif self.story["donate"]:
                 ability = "sprint" if required == "drive" else "jump"
                 route = "bridge across the sink" if required == "drive" else "walking ramp over the boxes"
@@ -238,6 +190,7 @@ class Play(Scene):
         self.say("A way forward", self.story["repaired_text"], note="Follow the glowing star." if self.levelnum != 4 else "Press E beside Bear to finish the delivery.")
 
     def recall(self):
+        soundscape.silence_robot()
         position = self.story["checkpoint"] if self.levelnum in self.state.repaired else self.data["start_pos"]
         self.robot.teleport(position)
         self.notify("Recalled safely. Repairs and memories are kept.")
@@ -245,6 +198,7 @@ class Play(Scene):
     def begin_exit(self):
         if self.collect_timer or self.levelnum not in self.state.repaired:
             return
+        soundscape.silence_robot()
         self.robot.start_collect()
         self.collect_timer = 48
 
@@ -299,7 +253,15 @@ class Play(Scene):
             return
         if keys is None:
             keys = pygame.key.get_pressed()
+        previous_x = self.robot.rect.x
+        previous_dy = self.robot.dy
+        was_grounded, was_right = self.robot.onground, self.robot.right
         self.robot.update(keys, self.walls + self.edges, self.platforms)
+        moving = self.robot.rect.x != previous_x
+        soundscape.update_robot(
+            self.robot, moving=moving, jumped=self.robot.jumped,
+            landed=not was_grounded and self.robot.onground and previous_dy < -1.5,
+            turned=moving and self.robot.right != was_right)
         if self.robot.rect.top > HEIGHT or (self.levelnum == 2 and 367 < self.robot.rect.centerx < 500 and self.robot.rect.bottom > 310):
             self.recall()
         if self.levelnum != 4 and self.robot.rect.colliderect(self.star):
@@ -320,7 +282,7 @@ class Play(Scene):
                 pygame.draw.circle(self.darkness, (0, 0, 0, 40), position, 65)
         canvas.blit(self.darkness, (0, 0))
 
-    def draw(self, canvas):
+    def draw(self, canvas, show_ui=True):
         canvas.blit(self.background, (0, 0))
         for rect in self.new_platforms:
             pygame.draw.rect(canvas, (49, 87, 86), rect)
@@ -362,41 +324,52 @@ class Play(Scene):
             for rect in self.platforms:
                 pygame.draw.rect(canvas, MINT, rect, 1)
             pygame.draw.rect(canvas, GOLD, self.robot.rect, 1)
-        pygame.draw.rect(canvas, INK, (0, 0, WIDTH, 20))
-        label(canvas, f"{self.levelnum + 1}/5  {self.data['boxes'].name.upper()}  /  {self.story['title']}", 9, 3, 16, GOLD)
-        label(canvas, f"MEMORIES {len(self.state.memories)}/5", 531, 3, 16, MINT)
-        pygame.draw.rect(canvas, INK, (0, 330, WIDTH, 30))
-        for i, (key, name) in enumerate(zip(MODULES, ("SPRINGS", "MOTOR", "SCANNER"))):
-            x = 8 + i * 126
-            active = key in self.state.equipped
-            color = MINT if active else MUTED if key in self.state.owned else (91, 102, 115)
-            pygame.draw.rect(canvas, color, (x, 336, 8, 8), 0 if active else 1)
-            label(canvas, f"{i + 1} {name}", x + 13, 335, 16, color)
-        label(canvas, "E use  R recall  J journal  Esc pause", 393, 336, 15, MUTED)
-        if self.notice_timer:
-            message_lines = lines(self.notice, 598, 18)
-            for i, line in enumerate(message_lines):
-                width = font(18).size(line)[0] + 16
-                pygame.draw.rect(canvas, INK, ((WIDTH - width) // 2, 27 + i * 19, width, 19), border_radius=4)
-                label(canvas, line, 320, 28 + i * 19, 18, GOLD, True)
-        kind, prompt = self.interaction()
-        if kind and not self.collect_timer:
-            width = font(17).size(prompt)[0] + 16
-            px = max(width // 2 + 4, min(WIDTH - width // 2 - 4, self.robot.rect.centerx))
-            py = max(68, min(298, self.robot.rect.top - 23))
-            pygame.draw.rect(canvas, INK, (px - width // 2, py - 2, width, 20), border_radius=4)
-            label(canvas, prompt, px, py, 17, GOLD, True)
+        if not show_ui:
+            return
         if self.dialog:
             title, body, note, confirm = self.dialog
-            panel(canvas, title, body, "ENTER leave part  /  ESC keep it" if confirm else "ENTER / E to continue", note)
+            panel(canvas, title, body,
+                  (("Enter", "Leave part"), ("Esc", "Keep part")) if confirm else (("Enter", "Continue"),),
+                  note)
+            return
+        # The room name is enough during play; its chapter title lives in the story.
+        pygame.draw.rect(canvas, INK, (0, 0, WIDTH, 24))
+        label(canvas, f"{self.levelnum + 1} / 5", 14, 6, 17, MUTED)
+        label(canvas, self.data['boxes'].name, 68, 5, 20, PAPER)
+        memories = f"Memories  {len(self.state.memories)} / 5"
+        label(canvas, memories, WIDTH - 14 - font(18).size(memories)[0], 6, 18, MINT)
+        pygame.draw.rect(canvas, INK, (0, 328, WIDTH, 32))
+        for i, (module, name) in enumerate(zip(MODULES, ("Springs", "Motor", "Scanner"))):
+            active = module in self.state.equipped
+            color = PAPER if active else MUTED if module in self.state.owned else (94, 110, 122)
+            action(canvas, str(i + 1), name, 12 + i * 105, 333, color=color, active=active)
+        action(canvas, "J", "Journal", 423, 333, color=MUTED)
+        action(canvas, "Esc", "Menu", 533, 333, color=MUTED)
+        notice_bottom = 28
+        if self.notice_timer:
+            wrapped = lines(self.notice, 526, 19)
+            width = max(font(19).size(line)[0] for line in wrapped) + 28
+            height = len(wrapped) * 23 + 16
+            rect = pygame.Rect((WIDTH - width) // 2, 34, width, height)
+            pygame.draw.rect(canvas, INK, rect, border_radius=6)
+            pygame.draw.rect(canvas, BORDER, rect, 1, border_radius=6)
+            paragraph(canvas, self.notice, rect.x + 14, rect.y + 8, 526, 19, GOLD, leading=23)
+            notice_bottom = rect.bottom
+        kind, text = self.interaction()
+        if kind and not self.collect_timer:
+            key = "3" if kind == "memory" and "lamp" not in self.state.equipped else "E"
+            top = max(notice_bottom + 10, min(286, self.robot.rect.top - 42))
+            prompt(canvas, key, text, self.robot.rect.centerx, top)
 
 
 class Pause(Scene):
     def __init__(self, play, journal=False):
         super().__init__()
         self.play = play
+        soundscape.silence_robot()
         self.journal = journal
-        self.page = 0
+        self.controls = False
+        self.page = play.levelnum
 
     def handle_event(self, event):
         if event.type != pygame.KEYDOWN or self.next_scene:
@@ -408,16 +381,50 @@ class Pause(Scene):
             self.next_scene = Menu(self.play.store)
         elif event.key == pygame.K_j:
             self.journal = not self.journal
-        elif event.key in (pygame.K_LEFT, pygame.K_RIGHT):
+            self.controls = False
+        elif event.key == pygame.K_h:
+            self.controls = not self.controls
+            self.journal = False
+        elif self.journal and event.key in (pygame.K_LEFT, pygame.K_RIGHT):
             self.page = (self.page + (1 if event.key == pygame.K_RIGHT else -1)) % 5
 
     def draw(self, canvas):
-        self.play.draw(canvas)
+        self.play.draw(canvas, show_ui=False)
         if self.journal:
-            text = levels.ROOMS[self.page]["memory_text"] if self.page in self.play.state.memories else "This memory is still in the house. Connect the scanner and press E beside a mint-colored diamond. Memories are optional; each room closes behind you."
-            panel(canvas, f"Journal / {levels.LEVELS[self.page]['boxes'].name}", text, "LEFT / RIGHT pages   J controls   ESC resume", note=f"Recovered {len(self.play.state.memories)} of 5 memories.")
+            text = levels.ROOMS[self.page]["memory_text"] if self.page in self.play.state.memories else "This memory is still in the house. Connect the scanner and press E beside a mint-colored diamond. Each room closes behind you."
+            panel(canvas, levels.LEVELS[self.page]['boxes'].name, text,
+                  (("Left / Right", "Browse"), ("J", "Back"), ("Esc", "Resume")),
+                  note=f"Memories recovered: {len(self.play.state.memories)} / 5.", eyebrow="Journal")
+        elif self.controls:
+            card(canvas, "Controls")
+            rows = (
+                ("Move", "Left / Right   or   A / D"),
+                ("Jump", "Up, W, or Space"),
+                ("Sprint", "Hold Shift while moving"),
+                ("Switch parts", ""),
+                ("Interact", "E"),
+                ("Recall to safety", "R"),
+            )
+            for i, (name, binding) in enumerate(rows):
+                y = 108 + i * 24
+                label(canvas, name, 64, y, 19, PAPER)
+                if name == "Switch parts":
+                    for key, text, x in (("1", "Springs", 256), ("2", "Motor", 363), ("3", "Scanner", 460)):
+                        action(canvas, key, text, x, y - 3, size=17, color=MUTED)
+                else:
+                    label(canvas, binding, 256, y, 18, MUTED)
+            label(canvas, "Two sockets. Switch parts while grounded.", 64, 258, 17, MINT)
+            pygame.draw.line(canvas, BORDER, (64, 278), (576, 278))
+            actions_row(canvas, (("H", "Back"), ("Esc", "Resume")), 291)
         else:
-            panel(canvas, "Delivery paused", self.play.story["objective"], "ESC / ENTER resume    J memories    Q save & menu", note="Arrows / A D move. Up / W / Space jump. Shift sprint.\n1 springs / 2 motor / 3 scanner: two sockets. E use. R recall.")
+            card(canvas, "Delivery paused")
+            label(canvas, "Current objective", 64, 108, 18, MINT)
+            paragraph(canvas, self.play.story["objective"], 64, 137, 512, 22, leading=27)
+            action(canvas, "H", "Controls", 64, 218)
+            action(canvas, "J", "Memories", 338, 218)
+            action(canvas, "M", soundscape.status, 64, 249, color=MUTED)
+            pygame.draw.line(canvas, BORDER, (64, 278), (576, 278))
+            actions_row(canvas, (("Esc", "Resume"), ("Q", "Save and quit to menu")), 291)
 
 
 class End(Scene):
@@ -439,7 +446,7 @@ class End(Scene):
         canvas.blit(lamp, (-25, 30))
         canvas.blit(picture("character/idle5.png").subsurface((0, 0, 64, 64)), (47, 65))
         canvas.blit(pygame.transform.scale(picture("background/star.png"), (20, 20)), (36, 102))
-        label(canvas, "PROMISE KEPT", 320, 47, 46, GOLD, True)
+        label(canvas, "Promise kept", 320, 47, 46, GOLD, True)
         text = "Bear has his star. The kitchen hums. A light reaches across the hall. Pip rests beside an old friend."
         if len(self.state.memories) == 5:
             text += "\nWith every memory restored, Pip remembers: it was never just a machine in this house. It was family."
@@ -447,4 +454,4 @@ class End(Scene):
             text += "\nSome memories have faded. The promise did not. Old things still have love to give."
         paragraph(canvas, text, 112, 111, 416, 23)
         label(canvas, f"{len(self.state.memories)} / 5 memories carried home", 320, 276, 21, MINT, True)
-        label(canvas, "ENTER  return to menu", 320, 316, 19, MUTED, True)
+        actions_row(canvas, (("Enter", "Return to menu"),), 316)

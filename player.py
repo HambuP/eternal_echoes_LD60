@@ -42,6 +42,7 @@ class Player:
         self.onground = False
         self.right = True
         self.jump_request = False
+        self.jumped = False
         self.jump_buffer = self.coyote = 0
         self.collecting = False
         self.sync_sprite()
@@ -57,6 +58,7 @@ class Player:
         self.rect.topleft = position
         self.posy = float(self.rect.y)
         self.dx = self.dy = 0
+        self.jumped = False
         self.jump_request = self.collecting = self.onground = False
         self.jump_buffer = self.coyote = 0
         self.sync_sprite()
@@ -76,6 +78,7 @@ class Player:
             below.colliderect(p) and rect.bottom <= p.top for p in platforms)
 
     def update(self, keys, walls, platforms):
+        self.jumped = False
         if self.collecting:
             return
         was_onground = self.onground
@@ -85,6 +88,7 @@ class Player:
         self.jump_request = False
         if self.jump_buffer and self.coyote and self.can_jump:
             self.dy = JUMP_STRENGTH
+            self.jumped = True
             self.onground = False
             self.coyote = self.jump_buffer = 0
         running = self.can_run and (keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT])

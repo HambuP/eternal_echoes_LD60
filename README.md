@@ -68,16 +68,26 @@ The window is 1280 × 720 with a 640 × 360 game canvas. Assets load relative to
 | Enter / Escape | Confirm / cancel a permanent part donation |
 | R | Recall to the room's safe starting point or recovery point |
 | Escape | Pause / resume; dismiss a normal story panel |
-| J | Open the journal; toggle journal / controls while paused |
+| J | Open the journal; toggle journal / pause menu |
+| H while paused | Open / close the controls page |
+| M | Mute / unmute music and robot sounds |
 | Left / Right in journal | Browse the five room memories |
 | Q while paused | Save and return to the menu |
 | F1 | Toggle collision outlines for debugging |
 
-You have **two sockets**. A third part cannot connect until you disconnect another. Parts can only be switched while grounded. A filled mint square in the bottom bar means connected, an outline means available, and a dim label means unavailable.
+You have **two sockets**. A third part cannot connect until you disconnect another. Parts can only be switched while grounded. A mint number badge in the bottom bar means connected, a dark badge means disconnected, and a dim label means the part is unavailable. Press Escape, then H, for the full controls. Each key has its own badge so instructions are easier to scan.
 
 The scanner reveals mint diamond memory markers and expands your light in dark rooms. Read memories with E nearby. Memories are optional and change the ending text. Rooms close behind you, so collect a room's memory before following its exit star if you want all five.
 
 There is no battery timer, combat, or limited stock of lives. **R** preserves repairs, parts, and memories. Falling into the kitchen basins recalls you automatically. Hold jump for the full arc when climbing high shelves.
+
+## Audio
+
+The game includes the seven original WAV files from your latest **Old House Robot** sound pack: mellow background jazz, walking footsteps, running thrusters, an idle motor, left/right servos, and jumping/landing effects. No separate download or audio package is required.
+
+Music plays quietly from the title screen. Movement sounds follow the robot's actual actions; footsteps stop in midair or against a wall. The supplied jump recording is split for playback so takeoff and landing line up with the game. Robot sounds stop during pauses and story panels, while the music continues.
+
+Press **M** anywhere to mute or unmute all audio for this session. The pause menu shows the sound status. If you hear nothing, check that it says **Sound on**, check your system output device/volume, and ensure the audio folder is present. A machine without an audio device can still run the game. Original file provenance and playback mapping are in [audio/README.md](audio/README.md).
 
 ## Saves
 
@@ -109,7 +119,7 @@ Windows PowerShell:
 .\.venv\Scripts\python.exe -m unittest discover -v
 ```
 
-Success prints `Ran 26 tests` and `OK`.
+Success prints `Ran 36 tests` and `OK`.
 
 Tests use SDL's dummy display and audio drivers and temporary save files. They do not change your delivery save. The suite checks:
 
@@ -118,6 +128,8 @@ Tests use SDL's dummy display and audio drivers and temporary save files. They d
 - Grounded module switching, coyote time, buffered jumps, variable jump height, sprinting, walls, and one-way platforms.
 - Story/pause behavior, repeated pause/resume, memory collection, recalls, room transitions, ending interaction, and every scene's rendering.
 - Launching from another working directory.
+- Loading the original sound pack, movement-synchronized audio, mute/resume, pause silencing, original jump sample preservation, and graceful operation without an audio device.
+- Instruction-panel bounds, spacing between keyboard badges, and controls/journal navigation.
 - Recorded keyboard-input playthroughs through all five rooms, both with and without memory collection, without teleporting to objectives or bypassing collisions.
 - Completing each room after continuing from a save made after its repair, including both permanent donations.
 
@@ -145,11 +157,12 @@ A GitHub Actions workflow runs the suite and smoke test on Linux, macOS, and Win
 - Read a memory without the scanner, then connect it and try again.
 - Cancel each donation before confirming; the part should remain yours until confirmation.
 - Recall in each room, fall into a sink basin, and continue after quitting immediately after each donation. Repairs must remain, and routes must still work.
-- Pause and resume repeatedly, browse journal pages, and check that the world remains still behind the overlay.
+- Pause and resume repeatedly, open the controls with H, browse journal pages, and check that the world remains still behind the overlay.
+- Check jazz playback, walking versus thruster sounds, idle hum, directional servos, and jump/landing timing. Press M twice; all audio should mute, then resume. Pausing or opening a story must stop robot sounds.
 - Complete the game with all five memories and once without collecting them. Both runs should finish, with different closing text.
 - Check text, beacons, and the module bar at your display scale. The dark rooms should be navigable with the scanner.
 
-Development verification: Python 3.14.7, pygame-ce 2.5.8, SDL 2.32.10 on macOS. The 26-test local suite, both full simulated playthroughs, all-room render checks, and native-window smoke test passed. Rendered screens were visually inspected. These checks reduce regression risk; they do not establish that every hardware/display combination is bug-free or replace human usability playtesting.
+Development verification: Python 3.14.7, pygame-ce 2.5.8, SDL 2.32.10 on macOS. The 36-test local suite, both full simulated playthroughs, all-room render checks, and native-window smoke test passed. Rendered screens were visually inspected. These checks reduce regression risk; they do not establish that every hardware/display combination is bug-free or replace human usability playtesting.
 
 ## Source layout
 
@@ -159,6 +172,8 @@ Development verification: Python 3.14.7, pygame-ce 2.5.8, SDL 2.32.10 on macOS. 
 - `player.py`: movement, collisions, animation, and module-controlled abilities.
 - `levels.py`: original room collision maps, story data, and repaired routes.
 - `assets.py`: cached asset loading independent of the working directory.
+- `ui.py`: typography, keyboard badges, spacing, and panel layouts.
+- `sound.py` and `audio/`: synchronized playback and the original sound pack.
 - `tests/`: rule, physics, scene, launch, and input-replay tests.
 
 Original assets and code remain under the repository's [MIT license](LICENSE).
