@@ -222,3 +222,5 @@ __marimo__/
 # Local delivery progress and macOS metadata
 saves/
 .DS_Store
+
+progress.json

@@ -5,11 +5,13 @@ from assets import picture, ROOT
 GRAVITY = 0.3
 JUMP_STRENGTH = 7.4
 JUMP_CUT = 2
+SPRINT_JUMP = 1.12
 MAX_FALL = 10
-WALK_SPEED = 3
-RUN_SPEED = 4
 STEP_HEIGHT = 8
-ANIM_SPEED = 0.22
+# Wear: how worn the robot is, 0 (fresh) to 5. Each room, and each star, adds one.
+WALK_SPEED = (3.0, 2.8, 2.6, 2.4, 2.2, 2.0)
+RUN_SPEED = (4.0, 3.8, 3.6, 3.4, 3.2, 3.0)
+ANIM_SPEED = (0.22, 0.20, 0.185, 0.17, 0.155, 0.14)
 SPRITE = 64
 COYOTE_FRAMES = 6
 BUFFER_FRAMES = 7
@@ -22,11 +24,13 @@ def cut_frames(path, count, start=0):
 
 
 class Player:
-    def __init__(self, start_pos, size, levelnum, can_jump=True, can_run=True):
+    def __init__(self, start_pos, size, levelnum, can_jump=True, can_run=True, wear=None):
         n = str(levelnum + 1)
         self.can_jump, self.can_run = can_jump, can_run
+        self.set_wear(levelnum if wear is None else wear)
         self.rect = pygame.Rect(*start_pos, *size)
         self.rect_draw = pygame.Rect(0, 0, SPRITE, SPRITE)
+        self.posx = float(self.rect.x)
         self.posy = float(self.rect.y)
         idle = cut_frames(f"character/idle{n}.png", 1)
         walk = cut_frames(f"character/walk{n}.png", 8)
@@ -47,6 +51,12 @@ class Player:
         self.collecting = False
         self.sync_sprite()
 
+    def set_wear(self, wear):
+        self.wear = max(0, min(len(WALK_SPEED) - 1, wear))
+        self.walk_speed = WALK_SPEED[self.wear]
+        self.run_speed = RUN_SPEED[self.wear]
+        self.anim_speed = ANIM_SPEED[self.wear]
+
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN and event.key in (pygame.K_UP, pygame.K_w, pygame.K_SPACE):
             self.jump_request = True
@@ -56,6 +66,7 @@ class Player:
 
     def teleport(self, position):
         self.rect.topleft = position
+        self.posx = float(self.rect.x)
         self.posy = float(self.rect.y)
         self.dx = self.dy = 0
         self.jumped = False
@@ -82,23 +93,24 @@ class Player:
         if self.collecting:
             return
         was_onground = self.onground
-        self.animationtime += ANIM_SPEED
+        self.animationtime += self.anim_speed
         self.coyote = COYOTE_FRAMES if self.onground else max(0, self.coyote - 1)
         self.jump_buffer = BUFFER_FRAMES if self.jump_request else max(0, self.jump_buffer - 1)
         self.jump_request = False
+        running = self.can_run and (keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT])
         if self.jump_buffer and self.coyote and self.can_jump:
-            self.dy = JUMP_STRENGTH
+            self.dy = JUMP_STRENGTH * (SPRINT_JUMP if running else 1)   # a running jump goes higher and further
             self.jumped = True
             self.onground = False
             self.coyote = self.jump_buffer = 0
-        running = self.can_run and (keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT])
-        speed = RUN_SPEED if running else WALK_SPEED
+        speed = self.run_speed if running else self.walk_speed
         direction = int(bool(keys[pygame.K_RIGHT] or keys[pygame.K_d])) - int(bool(keys[pygame.K_LEFT] or keys[pygame.K_a]))
         self.dx = direction * speed
         if direction:
             self.right = direction > 0
         anim = (2 if running else 1) if direction else 0
-        self.rect.x += self.dx
+        self.posx += self.dx
+        self.rect.x = round(self.posx)
         for wall in walls:
             if self.rect.colliderect(wall):
                 lift = self.rect.bottom - wall.top
@@ -107,8 +119,10 @@ class Player:
                     self.posy = self.rect.y
                 elif self.dx > 0:
                     self.rect.right = wall.left
+                    self.posx = self.rect.x
                 elif self.dx < 0:
                     self.rect.left = wall.right
+                    self.posx = self.rect.x
         for p in platforms:
             if self.rect.colliderect(p):
                 lift = self.rect.bottom - p.top
