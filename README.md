@@ -4,32 +4,54 @@ A short, five-room platform adventure about an aging household robot keeping a p
 
 Built on the original LD60 **Old Tech** prototype, retaining its room artwork and robot animation sheets. The approved design and implementation plan is in [PLAN.md](PLAN.md).
 
-## Install and play
+## Quick start: install and play
 
-Requires **Python 3.11 or newer** and a desktop display. The game uses `pygame-ce` (imported as `pygame`); no other game framework or asset download is needed. Use a virtual environment to avoid conflicts with a separate `pygame` installation.
+You need **Python 3.11 or newer**, **Git** (for cloning), and a desktop display. Install Python from [python.org](https://www.python.org/downloads/) if it is missing. The game runs locally; no server, API key, or additional asset download is required.
+
+Choose the commands for your operating system below. If you already cloned the repository, open a terminal in its folder and skip the first two lines. Keep that terminal open for the later commands.
 
 ### macOS / Linux
 
-From the repository folder:
-
 ```sh
+git clone --branch main https://github.com/HambuP/game.git
+cd game
 python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python main.py
+./.venv/bin/python -m pip install -r requirements.txt
+./.venv/bin/python main.py
 ```
 
 ### Windows PowerShell
 
 ```powershell
+git clone --branch main https://github.com/HambuP/game.git
+cd game
 py -3 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe main.py
 ```
 
+These commands use the virtual environment directly, so you do **not** need to activate it or change PowerShell's execution policy. The dependency is `pygame-ce`, imported by the code as `pygame`; install the pinned package from `requirements.txt` rather than installing a separate `pygame` package.
+
+**What you should see:** a window titled **Old Tech: One Last Delivery** with an **OLD TECH** title screen. Press **Enter** to start, then Enter or E to dismiss the opening story. Use Left / Right or A / D to move, Up / W / Space to jump, and E to interact.
+
+### Play again later
+
+Open a terminal in the repository folder and run just the launch command:
+
+- macOS / Linux: `./.venv/bin/python main.py`
+- Windows PowerShell: `.\.venv\Scripts\python.exe main.py`
+
+Press **Enter** to continue your saved delivery. After finishing, Enter revisits the ending; **N** starts a new delivery. Replacing an existing save requires Enter to confirm, or Escape to cancel. Close the game window to exit.
+
 The window is 1280 × 720 with a 640 × 360 game canvas. Assets load relative to the source, so an absolute path to `main.py` also works from another folder.
 
-Press **Enter** to begin or continue. After finishing, Enter revisits the ending; **N** starts a new delivery. Replacing an existing save requires Enter to confirm, or Escape to cancel.
+### If it does not start
+
+- **Python command not found:** install Python 3.11 or newer, reopen your terminal, and retry. On Windows, use `python` instead of `py -3` for the environment-creation step if your installation does not include the `py` launcher.
+- **`No module named pygame`:** repeat the dependency-install command above using the same `.venv` Python used to launch the game.
+- **`main.py` or `requirements.txt` not found:** change into the repository folder; both files should be there.
+- **Virtual environment creation fails on Linux:** install your distribution's Python `venv` support, then retry.
+- **No game window:** launch from a desktop session. Headless/SSH sessions can run the automated checks below with a dummy display, but cannot show a playable window.
 
 ## Controls
 
@@ -73,11 +95,21 @@ To keep separate profiles or use a writable location when the repository is read
 
 ## Automated tests
 
-With the virtual environment active:
+From the repository folder, using the environment created above:
+
+macOS / Linux:
 
 ```sh
-python -m unittest discover -v
+./.venv/bin/python -m unittest discover -v
 ```
+
+Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -v
+```
+
+Success prints `Ran 26 tests` and `OK`.
 
 Tests use SDL's dummy display and audio drivers and temporary save files. They do not change your delivery save. The suite checks:
 
@@ -89,16 +121,18 @@ Tests use SDL's dummy display and audio drivers and temporary save files. They d
 - Recorded keyboard-input playthroughs through all five rooms, both with and without memory collection, without teleporting to objectives or bypassing collisions.
 - Completing each room after continuing from a save made after its repair, including both permanent donations.
 
-For a finite render/startup smoke test:
+For a finite window/startup check on macOS / Linux:
 
 ```sh
-python main.py --smoke 60
+./.venv/bin/python main.py --smoke 60
 ```
+
+On Windows, run `.\.venv\Scripts\python.exe main.py --smoke 60`. The title screen opens briefly and exits automatically; omit `--smoke 60` to play.
 
 For a headless smoke test on macOS / Linux:
 
 ```sh
-SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python main.py --smoke 5
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./.venv/bin/python main.py --smoke 5
 ```
 
 A GitHub Actions workflow runs the suite and smoke test on Linux, macOS, and Windows with Python 3.11 and 3.14. See the repository's Actions tab for results on a particular commit.
