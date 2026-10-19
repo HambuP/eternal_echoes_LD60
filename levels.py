@@ -74,13 +74,13 @@ map2 = Map("Study")
 map2.create_wall((0, 320), (640, 40))     # floor
 map2.create_wall((65, 51), (185, 100))    # bookcase
 map2.create_wall((143, 45), (53, 6))      # book on top of the bookcase
-map2.create_wall((365, 96), (111, 17))    # upper shelf
+map2.create_wall((390, 96), (90, 17))    # upper shelf
 map2.create_wall((469, 120), (111, 18))   # lower shelf: 102 px above the table, only a sprint jump gets up
 map2.create_wall((290, 302), (101, 18))   # wood pile, base
 map2.create_wall((320, 281), (50, 21))    # wood pile, peak
 map2.create_wall((406, 222), (234, 24))   # table top
 map2.create_wall((418, 246), (20, 74))    # table front leg
-map2.create_wall((621, 150), (19, 100))   # the lamp at the right edge: a wall, not a step up to the shelves
+map2.create_wall((621, 175), (19, 222))   # the book at the right edge to the shelves
 
 map3 = Map("Kitchen")
 map3.create_wall((0, 325), (640, 35))     # floor
