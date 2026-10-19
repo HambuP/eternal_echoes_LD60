@@ -9,7 +9,7 @@ SPRINT_JUMP = 1.12
 MAX_FALL = 10
 STEP_HEIGHT = 8
 # Wear: how worn the robot is, 0 (fresh) to 5. Each room, and each star, adds one.
-WALK_SPEED = (3.0, 2.3, 2.2, 2.1, 2.1, 2.0)
+WALK_SPEED = (2.5, 2.3, 2.35, 2.1, 2.1, 2.0)
 RUN_SPEED = (4.0, 3.8, 3.6, 3.4, 3.2, 3.0)
 ANIM_SPEED = (0.22, 0.20, 0.185, 0.17, 0.155, 0.14)
 SPRITE = 64

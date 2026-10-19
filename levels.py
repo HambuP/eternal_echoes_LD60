@@ -111,15 +111,15 @@ map5 = Map("Bedroom")
 map5.create_wall((0, 323), (640, 37))     # floor
 map5.create_wall((0, 125), (208, 18))     # top-left shelf
 map5.create_wall((9, 92), (34, 33))       # teddy bear
-map5.create_slope((164, 323), (312, 216), step=4)  # leaning plank: floor up to the left bed post
-map5.create_wall((312, 209), (42, 114))   # left bed post
-map5.create_wall((354, 289), (70, 34))    # broken pile between the posts
-map5.create_slope((440, 289), (589, 224), step=4)  # plank: pile up to the right bed post
+map5.create_slope((195, 323), (320, 210), step=4)  # leaning plank: floor up to the left bed post
+map5.create_wall((320, 209), (32, 114))   # left bed post
+map5.create_wall((354, 289), (90, 34))    # broken pile between the posts
+map5.create_slope((480, 300), (589, 224), step=4)  # plank: pile up to the right bed post
 map5.create_wall((589, 217), (48, 106))   # right bed post
 map5.create_platform((479, 217), (110, 8))                # window sill (one-way)
 map5.create_slope((369, 158), (479, 217), oneway=True)    # broken plank in the window: sill up to the middle shelf
 map5.create_platform((187, 158), (182, 12))               # middle shelf (one-way)
-map5.create_slope((208, 125), (238, 158))                 # leaning pen: middle shelf up to the top-left shelf
+map5.create_slope((208, 125), (238, 158))                 # leaning book: middle shelf up to the top-left shelf
 
 
 FULL, DIM, CRITICAL = "full", "dim", "critical"
