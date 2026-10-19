@@ -86,7 +86,7 @@ map3.create_wall((200, 214), (167, 111))  # counter, left of the sink
 map3.create_wall((419, 214), (6, 111))    # divider between the two basins
 map3.create_wall((500, 214), (140, 111))  # counter, right of the sink (edge moved left so the jump under shelf 4 is possible)
 map3.create_wall((566, 148), (74, 66))    # dish rack
-# the basins have no bottom: fall in and you land on the floor, too deep to jump out
+# Falling below the sink bridge triggers a safe recall in Play.update.
 
 map4 = Map("Hallway")
 map4.create_wall((0, 320), (640, 40))     # floor
@@ -114,7 +114,6 @@ map5.create_platform((187, 158), (182, 12))               # middle shelf (one-wa
 map5.create_slope((208, 125), (238, 158))                 # leaning pen: middle shelf up to the top-left shelf
 
 
-# visibility: None = see everything, a number = radius of the light circle around the robot
 # goalpos: top-left corner of the star
 LEVELS = [
     {
@@ -124,9 +123,6 @@ LEVELS = [
         "start_pos": (66, 166),
         "car_size": (34, 64),
         "goalpos": (38, 20),          # above the left picture frame
-        "run": True,
-        "jump": True,
-        "visibility": None,
     },
     {
         "boxes": map2,
@@ -135,9 +131,6 @@ LEVELS = [
         "start_pos": (66, 166),
         "car_size": (34, 64),
         "goalpos": (80, 14),          # on top of the bookcase
-        "run": True,
-        "jump": True,
-        "visibility": None,
     },
     {
         "boxes": map3,
@@ -146,9 +139,6 @@ LEVELS = [
         "start_pos": (66, 166),
         "car_size": (34, 64),
         "goalpos": (38, 28),          # on shelf 1, next to the vase
-        "run": False,
-        "jump": True,
-        "visibility": None,
     },
     {
         "boxes": map4,
@@ -157,9 +147,6 @@ LEVELS = [
         "start_pos": (66, 166),
         "car_size": (34, 64),
         "goalpos": (552, 163),        # on the little box on top of the big box
-        "run": False,
-        "jump": True,
-        "visibility": 90,
     },
     {
         "boxes": map5,
@@ -168,8 +155,69 @@ LEVELS = [
         "start_pos": (40, 250),
         "car_size": (34, 64),
         "goalpos": (50, 88),          # next to the teddy bear
-        "run": False,
-        "jump": False,
-        "visibility": 90,
     },
 ]
+
+# Story entities use (x, feet-y) positions. All new traversal surfaces are drawn
+# by the scene so the collision map never introduces invisible stepping stones.
+ROOMS = [
+    dict(title="THE PROMISE", objective="Wind the music box. Then follow the brass star.",
+         device=(205, 305), device_name="Music box", required="drive", donate=False,
+         checkpoint=(205, 241), memory=(387, 237),
+         intro=("A promise in brass", "Pip wakes beneath a silent clock. In its hand: Miri's brass star. One task remains in memory: bring the star to Bear before bedtime.", "Find the lamp on the floor. E uses nearby objects; 1 / 2 / 3 switch your two power sockets."),
+         repaired_text="The music box remembers the tune. A tiny voice in the recording says: 'Bear can't sleep without his star.' Follow the glowing star to the next room.",
+         memory_text="Miri's drawing: a crooked robot holding a sun. Underneath, in careful letters: PIP. 'You're not old,' she told it. 'You've just been here longer.'",
+         extra=[], restored=[]),
+    dict(title="A MAP OF HOME", objective="Scan the faded diagram at the desk terminal.",
+         device=(531, 222), device_name="Desk terminal", required="lamp", donate=False,
+         checkpoint=(490, 158), memory=(411, 74),
+         intro=("Repairs, in her handwriting", "Miri's study is full of patient repairs. A faded diagram on the desk marks a route through the kitchen to her old bedroom.", "Disconnect the motor with 2, then connect the scanner with 3. Keep the springs for climbing."),
+         repaired_text="Under the scanner, the route returns: KITCHEN > HALL > BEAR. A folding step clicks into place. Miri left a way through.",
+         memory_text="A letter, never posted: 'They offered me a new robot. But a new one wouldn't know where I hide the biscuits. I fixed Pip's motor instead.'",
+         extra=[(365, 174, 64, 7)], restored=[(261, 104, 93, 7)]),
+    dict(title="SOMETHING LEFT BEHIND", objective="Leave the motor at the pump to bridge the sink.",
+         device=(94, 325), device_name="Sink pump", required="drive", donate=True,
+         checkpoint=(62, 261), memory=(448, 192),
+         intro=("One part can carry everyone", "The sink bridge is powerless. Pip's drive motor fits the empty pump housing. If it stays here, the bridge can hold for years.", "Connect the motor to repair the pump. You will keep walking and jumping, but lose sprinting. R always recalls you safely."),
+         repaired_text="The motor settles into its new home. Water drains; the bridge unfolds. Pip's steps are slower now. Somewhere behind it, something old is useful again.",
+         memory_text="A recipe card: 'Two biscuits for Miri. One pretend biscuit for Pip.' On the back: 'If a thing still helps someone, it isn't finished.'",
+         extra=[], restored=[(365, 214, 139, 9)]),
+    dict(title="A LIGHT TO FOLLOW", objective="Give the springs to the lift. Walk up its ramp.",
+         device=(365, 320), device_name="Hall lift", required="jump", donate=True,
+         checkpoint=(295, 230), memory=(300, 287),
+         intro=("The house holds its breath", "The hall has gone dark. Bear's room is beyond the fallen boxes. The old lift needs a pair of springs; Pip has the last working pair.", "The scanner widens your light. Read the memory before leaving. Donating the springs creates a route you can walk."),
+         repaired_text="The springs lift a long rescue ramp. Pip cannot jump now, but the house can carry it the rest of the way. Keep walking toward the light.",
+         memory_text="A height mark on the wall: MIRI, AGE 8. Beneath it, a much lower line: PIP, AGE LOTS. 'There will always be room for you,' she said.",
+         extra=[], restored=[]),
+    dict(title="ONE LAST DELIVERY", objective="Reach Bear and connect the lamp to his night-light.",
+         device=(76, 125), device_name="Bear's night-light", required="lamp", donate=False,
+         checkpoint=(40, 259), memory=(293, 136),
+         intro=("Before bedtime", "The bedroom is smaller than Pip remembers. The bed has fallen, but the planks still lead to the shelf. Bear is waiting where Miri left him.", "Walk right up the planks, then left along the window and shelves. The last working light is yours to share."),
+         repaired_text="Pip sets the brass star beside Bear. The lamp warms the shelf. The promise is complete. For the first time all night, there is nowhere else Pip needs to be.",
+         memory_text="A note tucked behind a book: 'Pip, if I'm away, please look after Bear. He pretends he isn't afraid of the dark. Love, Miri.'",
+         extra=[], restored=[]),
+]
+
+
+def geometry(index, repaired=False):
+    """Fresh collision lists; repairs never mutate shared level definitions."""
+    base = LEVELS[index]["boxes"]
+    walls = list(base.walls)
+    platforms = list(base.platforms)
+    new_platforms = [pygame.Rect(p) for p in ROOMS[index]["extra"]]
+    if repaired:
+        new_platforms += [pygame.Rect(p) for p in ROOMS[index]["restored"]]
+    ramps = []
+    if index == 3 and repaired:
+        # Start well before the boxes and clear every solid on the ascent.
+        ramps = [((314, 320), (553, 199))]
+        walls += staircase(*ramps[0], step=4)
+    if index == 4:
+        # Bridge the original drop between bed posts: no jump module remains.
+        ramps = [((354, 209), (440, 224))]
+        platforms += staircase(*ramps[0], step=4)
+        # The second plank joins the bridge at its upper end.
+        ramps.append(((440, 224), (589, 217)))
+        platforms += staircase(*ramps[1], step=4)
+    platforms += new_platforms
+    return walls, platforms, new_platforms, ramps

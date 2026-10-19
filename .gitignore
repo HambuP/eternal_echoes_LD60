@@ -218,3 +218,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local delivery progress and macOS metadata
+saves/
+.DS_Store

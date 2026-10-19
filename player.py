@@ -1,185 +1,156 @@
+"""Fixed 60 Hz movement. Game scenes and route tests use the same simulation."""
 import pygame
+from assets import picture, ROOT
 
-# ---------- tuning: play with these ----------
 GRAVITY = 0.3
-JUMP_STRENGTH = 7       # upward speed when a jump starts
-JUMP_CUT = 2            # upward speed when you let go of UP early (short hop)
-MAX_FALL = 10           # fastest falling speed
+JUMP_STRENGTH = 7.4
+JUMP_CUT = 2
+MAX_FALL = 10
 WALK_SPEED = 3
 RUN_SPEED = 4
-STEP_HEIGHT = 8         # the robot walks up anything this tall automatically (slopes, small bumps)
-ANIM_SPEED = 0.3        # animation frames per game frame
-SPRITE = 64             # size of one frame in the sprite sheets
-WALK_FRAMES = 8
-RUN_FRAMES = 8
-
-
-def overlap(rect1, rect2):
-    return rect1.colliderect(rect2)
+STEP_HEIGHT = 8
+ANIM_SPEED = 0.22
+SPRITE = 64
+COYOTE_FRAMES = 6
+BUFFER_FRAMES = 7
 
 
 def cut_frames(path, count, start=0):
-    """Loads a sprite sheet and cuts `count` 64x64 frames from the top row."""
-    sheet = pygame.image.load(path).convert_alpha()
-    return [sheet.subsurface(pygame.Rect(SPRITE * (start + i), 0, SPRITE, SPRITE)) for i in range(count)]
+    sheet = picture(path)
+    return [sheet.subsurface(pygame.Rect(SPRITE * (start + i), 0, SPRITE, SPRITE))
+            for i in range(count)]
 
 
 class Player:
-    def __init__(self, start_pos, size, levelnum, can_jump, can_run):
+    def __init__(self, start_pos, size, levelnum, can_jump=True, can_run=True):
         n = str(levelnum + 1)
-        self.can_jump = can_jump
-        self.can_run = can_run
-
-        self.rect = pygame.Rect(start_pos[0], start_pos[1], size[0], size[1])   # hitbox
-        self.rect_draw = pygame.Rect(self.rect.x, self.rect.y, SPRITE, SPRITE)  # where the sprite is drawn
+        self.can_jump, self.can_run = can_jump, can_run
+        self.rect = pygame.Rect(*start_pos, *size)
+        self.rect_draw = pygame.Rect(0, 0, SPRITE, SPRITE)
         self.posy = float(self.rect.y)
-
-        # animations: only load run / jump if this level has them
-        idle = cut_frames("character/idle" + n + ".png", 1)
-        walk = cut_frames("character/walk" + n + ".png", WALK_FRAMES)
-        run = cut_frames("character/run" + n + ".png", RUN_FRAMES) if can_run else walk
-        jump = cut_frames("character/jump" + n + ".png", 1, start=1) if can_jump else idle
-        self.collect_frame = cut_frames("character/collect" + n + ".png", 1)[0]
-
-        self.animations = [idle, walk, run, jump]   # 0 idle, 1 walk, 2 run, 3 in the air
+        idle = cut_frames(f"character/idle{n}.png", 1)
+        walk = cut_frames(f"character/walk{n}.png", 8)
+        run_path = f"character/run{n}.png"
+        jump_path = f"character/jump{n}.png"
+        run = cut_frames(run_path, 8) if (ROOT / run_path).exists() else walk
+        jump = cut_frames(jump_path, 1, 1) if (ROOT / jump_path).exists() else idle
+        self.collect_frame = cut_frames(f"character/collect{n}.png", 1)[0]
+        self.animations = [idle, walk, run, jump]
         self.animationtime = 0
         self.current = idle[0]
-
-        self.dx = 0
-        self.dy = 0              # positive = going up
+        self.dx = self.dy = 0
         self.onground = False
         self.right = True
         self.jump_request = False
+        self.jump_buffer = self.coyote = 0
         self.collecting = False
+        self.sync_sprite()
 
     def handle_event(self, event):
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_UP:
+        if event.type == pygame.KEYDOWN and event.key in (pygame.K_UP, pygame.K_w, pygame.K_SPACE):
             self.jump_request = True
 
+    def sync_sprite(self):
+        self.rect_draw.midbottom = self.rect.midbottom
+
+    def teleport(self, position):
+        self.rect.topleft = position
+        self.posy = float(self.rect.y)
+        self.dx = self.dy = 0
+        self.jump_request = self.collecting = self.onground = False
+        self.jump_buffer = self.coyote = 0
+        self.sync_sprite()
+
     def start_collect(self):
-        """Freezes the robot and shows the collect frame (green button)."""
         self.collecting = True
         self.current = self.collect_frame
 
-    def is_free(self, rect, walls):
+    @staticmethod
+    def is_free(rect, walls):
         return rect.collidelist(walls) == -1
 
-    def standing_on(self, rect, walls, platforms):
-        """True if there's a wall, or the top of a one-way platform, right under this rect."""
+    @staticmethod
+    def standing_on(rect, walls, platforms):
         below = rect.move(0, 1)
-        if below.collidelist(walls) != -1:
-            return True
-        for p in platforms:
-            if below.colliderect(p) and rect.bottom <= p.top:
-                return True
-        return False
+        return below.collidelist(walls) != -1 or any(
+            below.colliderect(p) and rect.bottom <= p.top for p in platforms)
 
     def update(self, keys, walls, platforms):
         if self.collecting:
             return
-
         was_onground = self.onground
         self.animationtime += ANIM_SPEED
-        anim = 0
-
-        # ---- jump ----
-        if self.jump_request and self.onground and self.can_jump:
+        self.coyote = COYOTE_FRAMES if self.onground else max(0, self.coyote - 1)
+        self.jump_buffer = BUFFER_FRAMES if self.jump_request else max(0, self.jump_buffer - 1)
+        self.jump_request = False
+        if self.jump_buffer and self.coyote and self.can_jump:
             self.dy = JUMP_STRENGTH
             self.onground = False
-        self.jump_request = False
-
-        # ---- horizontal input ----
+            self.coyote = self.jump_buffer = 0
         running = self.can_run and (keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT])
         speed = RUN_SPEED if running else WALK_SPEED
-
-        self.dx = 0
-        if keys[pygame.K_LEFT]:
-            self.dx = -speed
-            self.right = False
-        if keys[pygame.K_RIGHT]:
-            self.dx = speed
-            self.right = True
-        if self.dx != 0:
-            anim = 2 if running else 1
-
-        # ---- horizontal move + collisions (with step-up for slopes) ----
+        direction = int(bool(keys[pygame.K_RIGHT] or keys[pygame.K_d])) - int(bool(keys[pygame.K_LEFT] or keys[pygame.K_a]))
+        self.dx = direction * speed
+        if direction:
+            self.right = direction > 0
+        anim = (2 if running else 1) if direction else 0
         self.rect.x += self.dx
         for wall in walls:
-            if overlap(wall, self.rect):
-                lift = self.rect.bottom - wall.top     # how tall this obstacle is compared to our feet
+            if self.rect.colliderect(wall):
+                lift = self.rect.bottom - wall.top
                 if self.dy <= 0 and 0 < lift <= STEP_HEIGHT and self.is_free(self.rect.move(0, -lift), walls):
-                    self.rect.y -= lift                # small step: climb on top of it
+                    self.rect.y -= lift
                     self.posy = self.rect.y
                 elif self.dx > 0:
                     self.rect.right = wall.left
                 elif self.dx < 0:
                     self.rect.left = wall.right
-
-        # one-way platforms never block sideways, but you can still step up onto them
         for p in platforms:
-            if overlap(p, self.rect):
+            if self.rect.colliderect(p):
                 lift = self.rect.bottom - p.top
                 if self.dy <= 0 and 0 < lift <= STEP_HEIGHT and self.is_free(self.rect.move(0, -lift), walls):
                     self.rect.y -= lift
                     self.posy = self.rect.y
-
-        # ---- gravity + vertical collisions ----
-        prev_bottom = self.rect.bottom
-        self.dy -= GRAVITY
-        if self.dy < -MAX_FALL:
-            self.dy = -MAX_FALL
+        previous_bottom = self.rect.bottom
+        self.dy = max(-MAX_FALL, self.dy - GRAVITY)
         self.posy -= self.dy
         self.rect.y = round(self.posy)
-
         falling = self.dy < 0
         for wall in walls:
-            if overlap(wall, self.rect):
+            if self.rect.colliderect(wall):
                 if self.dy > 0:
                     self.rect.top = wall.bottom
                 else:
                     self.rect.bottom = wall.top
                 self.posy = self.rect.y
                 self.dy = 0
-
-        # one-way platforms only catch you when you fall onto them from above
         if falling:
-            for p in platforms:
-                if overlap(p, self.rect) and prev_bottom <= p.top:
+            # Highest crossed surface wins, independently of declaration order.
+            for p in sorted(platforms, key=lambda p: p.top):
+                if self.rect.colliderect(p) and previous_bottom <= p.top:
                     self.rect.bottom = p.top
                     self.posy = self.rect.y
                     self.dy = 0
-
-        # ---- ground check ----
         self.onground = self.standing_on(self.rect, walls, platforms)
-
-        # walking down a slope: snap down small steps instead of falling
         if not self.onground and was_onground and self.dy <= 0:
-            for d in range(1, STEP_HEIGHT + 1):
-                test = self.rect.move(0, d)
+            for distance in range(1, STEP_HEIGHT + 1):
+                test = self.rect.move(0, distance)
                 if not self.is_free(test, walls):
                     break
                 if self.standing_on(test, walls, platforms):
-                    self.rect.y += d
+                    self.rect.y += distance
                     self.posy = self.rect.y
                     self.dy = 0
                     self.onground = True
                     break
-
-        # ---- variable jump height ----
-        if not keys[pygame.K_UP] and self.dy > JUMP_CUT:
+        held_jump = keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]
+        if not held_jump and self.dy > JUMP_CUT:
             self.dy = JUMP_CUT
-
-        # ---- animation ----
         if not self.onground:
             anim = 3
         frames = self.animations[anim]
         self.current = frames[int(self.animationtime) % len(frames)]
-
-        self.rect_draw.x = self.rect.centerx - SPRITE // 2
-        self.rect_draw.y = self.rect.bottom - SPRITE
+        self.sync_sprite()
 
     def draw(self, canvas):
-        image = self.current
-        if not self.right:
-            image = pygame.transform.flip(image, True, False)
-        canvas.blit(image, self.rect_draw)
+        canvas.blit(self.current if self.right else pygame.transform.flip(self.current, True, False), self.rect_draw)
